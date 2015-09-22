@@ -1,0 +1,98 @@
+<template name="todos">
+ 	{{>addTodo}}
+ 	<ul>
+	{{#each todo }}
+		{{>toDoItem}}
+	{{/each}}
+	</ul>
+	{{> todosCount}}
+</template>
+
+<template name="toDoItem">
+  <li class="{{checked}}">
+  	<input type="checkbox" {{checked}}/>
+    <input type="text" value="{{name}}" name="toDoItem" class="{{checked}}"/> 
+    [<a href="#" class="delete-todo">Delete</a>]
+  </li>
+</template>
+
+<template name="addTodo">
+  <form>
+  	Create a Task:
+  	<input type="text" placeholder="Type a task here..." name="todoName"/>
+  </form>
+</template>
+
+<template name="todosCount">
+	{{#if totalTodos}}
+		<p>You have completed {{completedTodos}}/{{totalTodos}} tasks.</p>
+	{{/if}}
+</template>
+
+<template name="addList">
+  <form>
+  	<input type="text" placeholder="List name here..." name="listName"/>  	
+  </form>
+</template>
+
+<template name="home">
+	<p>Welcome to the Todos Application!</p>	
+</template>
+
+<template name="register">
+  <h2>Register</h2>
+  <form class="register">
+  	<p>Email: <input type="email" name="email"/></p>
+  	<p>Password: <input type="password" name="password"/></p>
+  	<p><input type="submit" value="Register"/></p>
+  </form>
+</template>
+
+<template name="login">
+  <h2>Login</h2>
+  <form class="login">
+  	<p>Email: <input type="email" name="email"/></p>
+  	<p>Password: <input type="password" name="password"/></p>
+  	<p><input type="submit" value="Login"/></p>
+  </form>
+</template>
+
+<template name="main">
+  <h1>Todos</h1>
+  {{> navigation }}
+  {{> lists}}
+  {{> yield }}
+  <hr/>
+  <p>Copyright &copy; Todos, 2014-2015.</p>
+</template>
+
+<template name="navigation">
+	<ul>
+		<li><a href="{{pathFor route='home'}}">Home</a></li>
+		{{#if currentUser}}
+			<li><a href="#" class="logout">Logout</a></li>
+		{{else}}
+			<li><a href="{{pathFor route='register'}}">Register</a></li>
+			<li><a href="{{pathFor route='login'}}">Login</a></li>
+		{{/if}}
+	</ul>
+</template>
+
+<template name="lists">
+	<h2>Lists</h2>
+	{{>addList}}
+	<ul>
+		{{#each list}}
+			<li>
+				<a href="{{pathFor route='listPage'}}">{{name}}</a>
+			</li>
+		{{/each}}
+	</ul>
+</template>
+
+<template name="listPage">
+  <p>{{_id}}</p>
+  <h2>Tasks: {{name}}</h2>
+  {{> todos}}
+</template>
+
