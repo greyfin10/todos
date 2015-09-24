@@ -31,3 +31,7 @@
 .checked [name = toDoItem]: focus{ 
 	background-color:#f0f0f0; 
 }
+
+input.error{
+	background-color: rgb(255,231,231);
+}

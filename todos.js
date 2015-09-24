@@ -14,12 +14,29 @@ Router.route('/list/:_id', {
   name: 'listPage',
   template: 'listPage',
   data: function(){
-    return Lists.findOne({ _id: this.params._id });
+    var currentList = this.params._id;
+    var currentUser = Meteor.userId();
+
+    return Lists.findOne({ _id: currentList, createdBy: currentUser });
+  }, onRun: function() {
+    console.log("You triggered 'onRun' for 'listPage'");
+    this.next();
+  }, onBeforeAction: function() {
+    console.log("You triggered onBeforeAction; for 'listPage' route.");
+    
+    var currentUser = Meteor.userId();
+    
+    if (currentUser) {
+      this.next();
+    } else {
+      this.render("login");
+    }
   }
 });
 
 
 if (Meteor.isClient) {
+
   /******************** HELPERS SECTION ********************/
   Template.todos.helpers({
     'todo': function() {
@@ -125,20 +142,6 @@ if (Meteor.isClient) {
   Template.register.events({
     'submit form': function(event) {
       event.preventDefault();
-
-      var username = $('[name=email]').val();
-      var password = $('[name=password]').val();
-
-      Accounts.createUser({
-        email: username,
-        password: password},
-        function(error) {
-          if (error) {
-            console.log(error.reason);
-          } else {
-            Router.go('home');
-          }
-      });
     }
   });
 
@@ -153,22 +156,83 @@ if (Meteor.isClient) {
   Template.login.events({
     'submit form': function(event) {
       event.preventDefault();
-
-      var username = $('[name=email]').val();
-      var password = $('[name=password]').val();
-
-      Meteor.loginWithPassword(username, password, function(error) {
-        if (error) {
-          console.log(error.reason);
-        } else {
-          Router.go("home");
-        }
-      });
     }
   });  
 
+  /********************VALIDATION SECTION********************/
 
+  $.validator.setDefaults({
+    rules: {
+      password: {
+          required: true,
+          minlength: 6
+        },
+        email: {
+          required: true,
+          email: true
+        }
+    },
+    messages: {
+      email: {
+        required: "You MUST enter an email address!",
+        email: "You've entered an invalid email."
+      },
+      password: {
+        required: "You MUST enter a password!",
+        minlength: "Your password must be at least {0} characters."
+      }
+    }
+  });
+
+  Template.login.onCreated(function() {
+    console.log("The 'login' template was just created.");
+  });
+
+  Template.login.onRendered(function() {
+    $('.login').validate({
+      submitHandler: function(event) {
+        var username = $('[name=email]').val();
+        var password = $('[name=password]').val();
+
+        Meteor.loginWithPassword(username, password, function(error) {
+          if (error) {
+            console.log(error.reason);
+          } else {
+            var currentRoute = Router.current().route.getName();
+            if (currentRoute == "login") {
+              Router.go("home");
+            }
+          }
+        });
+      }
+    });
+  });
+
+  Template.login.onDestroyed(function() {
+    console.log("The 'login' template was just destroyed.");
+  });
+
+  Template.register.onRendered(function() {
+    $('.register').validate({
+      submitHandler: function(event) {
+        var email = $('[name=email]').val();
+        var password = $('[name=password]').val();
+
+        Accounts.createUser({
+          email: email,
+          password: password
+        }, function(error) {
+            if (error) {
+              console.log(error.reason);
+            } else {
+              Router.go('home');
+            }
+        });
+      }
+    });
+  });
 }
+
 
 if (Meteor.isServer) {
 
