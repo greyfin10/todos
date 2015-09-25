@@ -19,10 +19,10 @@ Router.route('/list/:_id', {
 
     return Lists.findOne({ _id: currentList, createdBy: currentUser });
   }, onRun: function() {
-    console.log("You triggered 'onRun' for 'listPage'");
+    //console.log("You triggered 'onRun' for 'listPage'");
     this.next();
   }, onBeforeAction: function() {
-    console.log("You triggered onBeforeAction; for 'listPage' route.");
+    //console.log("You triggered onBeforeAction; for 'listPage' route.");
     
     var currentUser = Meteor.userId();
     
@@ -31,9 +31,12 @@ Router.route('/list/:_id', {
     } else {
       this.render("login");
     }
+  }, 
+  subscriptions: function() {
+    var currentList = this.params._id;
+    return [Meteor.subscribe('lists'), Meteor.subscribe('todos', currentList)];
   }
 });
-
 
 if (Meteor.isClient) {
 
@@ -75,6 +78,17 @@ if (Meteor.isClient) {
       return Lists.find({createdBy: currentUser}, {sort: {name: 1}});
     }
   });
+
+  Template.main.helpers({
+    'loggedUser': function() {
+      var Email;
+
+      //Email = Meteor.user().emails[0].address;
+
+      return Email;
+    }
+  });
+
 
   /********************EVENTS SECTION********************/
   Template.addTodo.events({
@@ -185,18 +199,28 @@ if (Meteor.isClient) {
   });
 
   Template.login.onCreated(function() {
-    console.log("The 'login' template was just created.");
+    //console.log("The 'login' template was just created.");
   });
 
   Template.login.onRendered(function() {
-    $('.login').validate({
+    var validator = $('.login').validate({
       submitHandler: function(event) {
         var username = $('[name=email]').val();
         var password = $('[name=password]').val();
 
         Meteor.loginWithPassword(username, password, function(error) {
           if (error) {
-            console.log(error.reason);
+            if (error.reason == "User not found") {
+              validator.showErrors({
+                email: "That email doesn't belong to a registered user."
+              });
+            }
+
+            if (error.reason == "Incorrect password") {
+              validator.showErrors({
+                password: "You entered an incorrect password."
+              });
+            }
           } else {
             var currentRoute = Router.current().route.getName();
             if (currentRoute == "login") {
@@ -209,11 +233,11 @@ if (Meteor.isClient) {
   });
 
   Template.login.onDestroyed(function() {
-    console.log("The 'login' template was just destroyed.");
+    //console.log("The 'login' template was just destroyed.");
   });
 
   Template.register.onRendered(function() {
-    $('.register').validate({
+    var validator = $('.register').validate({
       submitHandler: function(event) {
         var email = $('[name=email]').val();
         var password = $('[name=password]').val();
@@ -223,7 +247,11 @@ if (Meteor.isClient) {
           password: password
         }, function(error) {
             if (error) {
-              console.log(error.reason);
+              if (error.reason == "Email already exists.") {
+                validator.showErrors({
+                  email: "That email already belongs to a registered user."
+                });
+              }
             } else {
               Router.go('home');
             }
@@ -235,5 +263,15 @@ if (Meteor.isClient) {
 
 
 if (Meteor.isServer) {
+  Meteor.publish('lists', function() {
+    var currentUser = this.userId;
 
+    return Lists.find({createdBy: currentUser });
+  });
+
+  Meteor.publish('todos', function(currentList) {
+    var currentUser = this.userId;
+
+    return Todos.find({createdBy: currentUser, listId: currentList});
+  });
 }

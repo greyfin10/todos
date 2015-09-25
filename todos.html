@@ -58,7 +58,7 @@
 </template>
 
 <template name="main">
-  <h1>Todos</h1>
+  <h1>Todos ({{loggedUser}})</h1>
   {{> navigation }}
   {{#if currentUser}}
   	{{> lists}}
@@ -93,8 +93,6 @@
 </template>
 
 <template name="listPage">
-  <!--<p>{{_id}}</p>-->
   <h2>Tasks: {{name}}</h2>
   {{> todos}}
 </template>
-
