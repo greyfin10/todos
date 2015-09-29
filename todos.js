@@ -3,12 +3,15 @@ Todos = new Meteor.Collection('todos');
 Lists = new Meteor.Collection('lists');
 
 /******************** ROUTES SECTION ********************/
-Router.configure({ layoutTemplate: 'main' });
+Router.configure({ 
+  layoutTemplate: 'main', 
+  loadingTemplate: 'loading' }
+);
 Router.route('/register');
 Router.route('/login');
 Router.route('/',{
   name: 'home', 
-  template: 'home' 
+  template: 'home'
 });
 Router.route('/list/:_id', {
   name: 'listPage',
@@ -32,13 +35,18 @@ Router.route('/list/:_id', {
       this.render("login");
     }
   }, 
-  subscriptions: function() {
+  waitOn: function() {
     var currentList = this.params._id;
-    return [Meteor.subscribe('lists'), Meteor.subscribe('todos', currentList)];
+    return [Meteor.subscribe('todos', currentList)];
   }
 });
 
 if (Meteor.isClient) {
+
+  /**************TEMPLATE LEVEL CONDITIONALS****************/
+Template.lists.onCreated(function() {
+  this.subscribe('lists');
+})
 
   /******************** HELPERS SECTION ********************/
   Template.todos.helpers({
@@ -72,9 +80,7 @@ if (Meteor.isClient) {
 
   Template.lists.helpers({
     'list': function(){
-
-    var currentUser = Meteor.userId();
-
+      var currentUser = Meteor.userId();
       return Lists.find({createdBy: currentUser}, {sort: {name: 1}});
     }
   });
@@ -96,24 +102,25 @@ if (Meteor.isClient) {
       event.preventDefault();
       
       var todoName = $('[name="todoName"]').val();
-      var currentUser = Meteor.userId();
-
-      Todos.insert({
-        name: todoName,
-        completed: false,
-        createdAt: new Date(),
-        createdBy: currentUser,
-        listId: this._id
-      });
-      $('[name="todoName"]').val('');
+      var listId = this._id;
+      
+      Meteor.call('createListItem', todoName, listId, function(error, results) {
+        if (error) {
+          console.log(error.reason);
+        } else {
+          $('[name="todoName"]').val('');
+        }
+      });      
     }
   });
 
   Template.toDoItem.events({
     'click .delete-todo': function(event) {
       event.preventDefault();
+      var documentId = this._id;
+
       if (window.confirm("Delete this task?")) {
-       Todos.remove({ _id: this._id });    
+       Meteor.call('removeListItem', documentId);   
       }
     },
     'keyup [name=toDoItem]': function(event){
@@ -123,15 +130,16 @@ if (Meteor.isClient) {
           $(event.target).blur();
         break;
         default:
-          Todos.update({ _id: this._id }, {$set: { name: $(event.target).val()}});
+          var documentId = this._id;
+          var todoItem = $(event.target).val();
+          Meteor.call('updateListItem', documentId, todoItem);
       }
     },
     'change [type=checkbox]': function() {
-      if (this.completed) {
-        Todos.update({ _id: this._id }, {$set: { completed: false}});
-      } else {
-        Todos.update({ _id: this._id }, {$set: { completed: true}});
-      }
+      var itemCompleted = !this.completed;
+      var listId = this._id;
+
+      Meteor.call('changeItemStatus', listId, itemCompleted);
     }
   });
 
@@ -140,16 +148,16 @@ if (Meteor.isClient) {
       event.preventDefault();
 
       var listName = $('[name=listName]').val();
-      var currentUser = Meteor.userId();
 
-      Lists.insert({
-        name: listName,
-        createdBy: currentUser
-      }, function(error, results) {
-          Router.go('listPage', { _id: results });
+      Meteor.call('createNewList',listName, function(error, results) {
+        if (error) {
+          console.log(error.reason);
+        } else {
+          Router.go('listPage', {_id: results});
+          $('[name=listName]').val('');
+        }
       });
-
-      $('[name=listName]').val('');
+      
     }
   });
 
@@ -274,4 +282,107 @@ if (Meteor.isServer) {
 
     return Todos.find({createdBy: currentUser, listId: currentList});
   });
+
+  Meteor.methods({
+    'createNewList': function(listName) {
+      var currentUser = Meteor.userId();
+
+      check(listName, String);
+
+      if (listName=="") {
+        listName = defaultName(currentUser);
+      }
+
+      var data = {
+        name: listName,
+        createdBy: currentUser
+      };
+
+      if (!currentUser) {
+        throw new Meteor.Error("not-logged-in", "You're not logged in")
+      }
+
+      return Lists.insert(data);
+    },
+    'createListItem': function(itemName, listId) {
+      var currentUser = Meteor.userId();
+
+      check(itemName, String);
+
+      var data = {
+        name: itemName,
+        completed: false,
+        createdAt: new Date(),
+        createdBy: currentUser,
+        listId: listId
+      };
+
+      if (!currentUser) {
+        throw new Meteor.Error("not-logged-in", "You're not logged in")
+      }
+
+      return Todos.insert(data);
+    },
+    'updateListItem': function(documentId, todoItem) {
+      var currentUser = Meteor.userId();
+
+      check(todoItem, String);
+
+      if (!currentUser) {
+        throw new Meteor.Error("not-logged-in", "You're not logged in");
+      }
+
+      var data = {
+        _id: documentId,
+        createdBy: currentUser
+      };
+
+      Todos.update(data, {$set: { name: todoItem }});
+    },
+    'changeItemStatus': function(documentId, status) {
+      var currentUser = Meteor.userId();
+
+      check(status, Boolean);
+
+      var data = {
+        _id: documentId,
+        createdBy: currentUser
+      };
+
+      if (!currentUser) {
+        throw new Meteor.Error("not-logged-in", "You're not logged in")
+      }
+
+      return Todos.update(data, {$set: { completed: status}});
+    },
+    'removeListItem': function(documentId) {
+      var currentUser = Meteor.userId();
+
+      if (!currentUser) {
+        throw new Meteor.Error("not-logged-in", "You're not logged in");
+      }
+
+      check(documentId, String);
+
+      var data = {
+        _id: documentId,
+        createdBy: currentUser
+      };
+
+      Todos.remove(data); 
+    }
+  });
+
+  function defaultName(currentUser) {
+    var nextLetter = 'A';
+    var nextName = 'List' + nextLetter;
+
+    while (Lists.findOne({name: nextName, createdBy: currentUser})) {
+      nextLetter = String.fromCharCode(nextLetter.charCodeAt(0) + 1);
+      nextName = 'List' + nextLetter;  
+    }
+
+    return nextName;
+  }
+
 }
